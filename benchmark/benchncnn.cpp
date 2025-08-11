@@ -403,6 +403,8 @@ int main(int argc, char** argv)
 
         benchmark("mobilenet_v2", ncnn::Mat(224, 224, 3), opt);
 
+        benchmark("model_fp16_0917_1.ncnn", ncnn::Mat(256,16,7), opt);
+
         // benchmark("mobilenet_v2_int8", ncnn::Mat(224, 224, 3), opt);
 
         benchmark("mobilenet_v3", ncnn::Mat(224, 224, 3), opt);

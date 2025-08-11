@@ -13,6 +13,7 @@
 namespace ncnn {
 
 #include "deconvolution1d_2x2.h"
+#include "deconvolution1d_2x2_optimized.h"
 
 Deconvolution1D_arm::Deconvolution1D_arm()
 {
@@ -99,11 +100,11 @@ int Deconvolution1D_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Op
     if (kernel_w == 2 && stride_w == 2 && dilation_w == 1)
     {
 #if __ARM_NEON
-        fprintf(stderr, "deconvolution1d_arm: using deconv1d_k2s2_neon\n");
+        // fprintf(stderr, "deconvolution1d_arm: using deconv1d_k2s2_auto (optimized)\n");
         
-        int ret = deconv1d_k2s2_neon(bottom_blob, top_blob_bordered, weight_data, bias_data, activation_type, activation_params, opt);
+        int ret = deconv1d_k2s2_auto(bottom_blob, top_blob_bordered, weight_data, bias_data, activation_type, activation_params, opt);
 #else
-        fprintf(stderr, "deconvolution1d_arm: using deconvolution1d_arm\n");
+        // fprintf(stderr, "deconvolution1d_arm: using deconvolution1d_arm\n");
         int ret = deconvolution1d_arm(bottom_blob, top_blob_bordered, weight_data, bias_data, kernel_w, stride_w, dilation_w, activation_type, activation_params, opt);
 #endif
         if (ret != 0)
@@ -199,7 +200,7 @@ int Deconvolution1D_arm::forward(const std::vector<Mat>& bottom_blobs, std::vect
     if (_kernel_w == 2 && stride_w == 2 && dilation_w == 1)
     {
 #if __ARM_NEON
-        int ret = deconv1d_k2s2_neon(bottom_blob, top_blob_bordered, weight_data_transposed, bias_data_flattened, activation_type, activation_params, opt);
+        int ret = deconv1d_k2s2_auto(bottom_blob, top_blob_bordered, weight_data_transposed, bias_data_flattened, activation_type, activation_params, opt);
 #else
         int ret = deconvolution1d_arm(bottom_blob, top_blob_bordered, weight_data_transposed, bias_data_flattened, _kernel_w, stride_w, dilation_w, activation_type, activation_params, opt);
 #endif
@@ -208,9 +209,9 @@ int Deconvolution1D_arm::forward(const std::vector<Mat>& bottom_blobs, std::vect
     }
     else
     {
-        int ret = deconvolution1d_arm(bottom_blob, top_blob_bordered, weight_data_transposed, bias_data_flattened, _kernel_w, stride_w, dilation_w, activation_type, activation_params, opt);
-        if (ret != 0)
-            return ret;
+    int ret = deconvolution1d_arm(bottom_blob, top_blob_bordered, weight_data_transposed, bias_data_flattened, _kernel_w, stride_w, dilation_w, activation_type, activation_params, opt);
+    if (ret != 0)
+        return ret;
     }
 
     cut_padding(top_blob_bordered, top_blob, opt);

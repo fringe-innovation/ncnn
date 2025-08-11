@@ -7,10 +7,10 @@
 SRC_DIR="."
 
 # 远程目标信息
-DEST_USER="orangepi"
-DEST_IP="110.41.144.65"
-DEST_PORT=2093
-DEST_DIR="/home/orangepi/ncnn_ws/ncnn_modified"
+DEST_USER="szbaijie"
+DEST_IP="192.168.31.5"
+DEST_PORT=22
+DEST_DIR="/mnt/drive/ncnn_build/ncnn_a133"
 
 # 排除模式数组：忽略所有 build/ 和 install/ 目录及其子目录
 EXCLUDES=(
