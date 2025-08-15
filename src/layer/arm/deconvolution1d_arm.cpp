@@ -14,6 +14,7 @@ namespace ncnn {
 
 #include "deconvolution1d_2x2.h"
 #include "deconvolution1d_2x2_optimized.h"
+#include "deconvolution1d_2x2_pack4.h"
 
 Deconvolution1D_arm::Deconvolution1D_arm()
 {
@@ -83,15 +84,37 @@ int Deconvolution1D_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Op
 
     int outw = (w - 1) * stride_w + kernel_extent_w + output_pad_right;
 
+    // Determine packing parameters
+    int out_elempack = 1;
+    size_t out_elemsize = elemsize;
+    
+#if __ARM_NEON
+    if (opt.use_packing_layout && kernel_w == 2 && stride_w == 2 && dilation_w == 1)
+    {
+        // Use packed layout for 2x2 optimized case
+        if (num_output % 4 == 0)
+        {
+            out_elempack = 4;
+            out_elemsize = elemsize * out_elempack;
+        }
+    }
+#endif
+
     Mat top_blob_bordered;
     if (pad_left > 0 || pad_right > 0 || output_w > 0)
     {
-        top_blob_bordered.create(outw, num_output, elemsize, opt.workspace_allocator);
+        if (out_elempack == 4)
+            top_blob_bordered.create(outw, num_output / out_elempack, out_elemsize, out_elempack, opt.workspace_allocator);
+        else
+            top_blob_bordered.create(outw, num_output, elemsize, opt.workspace_allocator);
     }
     else
     {
         top_blob_bordered = top_blob;
-        top_blob_bordered.create(outw, num_output, elemsize, opt.blob_allocator);
+        if (out_elempack == 4)
+            top_blob_bordered.create(outw, num_output / out_elempack, out_elemsize, out_elempack, opt.blob_allocator);
+        else
+            top_blob_bordered.create(outw, num_output, elemsize, opt.blob_allocator);
     }
     if (top_blob_bordered.empty())
         return -100;
@@ -100,15 +123,27 @@ int Deconvolution1D_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Op
     if (kernel_w == 2 && stride_w == 2 && dilation_w == 1)
     {
 #if __ARM_NEON
-        // fprintf(stderr, "deconvolution1d_arm: using deconv1d_k2s2_auto (optimized)\n");
-        
-        int ret = deconv1d_k2s2_auto(bottom_blob, top_blob_bordered, weight_data, bias_data, activation_type, activation_params, opt);
+        // Check if we should use packed optimizations
+        if (opt.use_packing_layout && out_elempack == 4)
+        {
+            // fprintf(stderr, "deconvolution1d_arm: using deconv1d_k2s2_pack_auto (packed optimized)\n");
+            int ret = deconv1d_k2s2_pack_auto(bottom_blob, top_blob_bordered, weight_data, bias_data, activation_type, activation_params, opt);
+            if (ret != 0)
+                return ret;
+        }
+        else
+        {
+            // fprintf(stderr, "deconvolution1d_arm: using deconv1d_k2s2_auto (optimized)\n");
+            int ret = deconv1d_k2s2_auto(bottom_blob, top_blob_bordered, weight_data, bias_data, activation_type, activation_params, opt);
+            if (ret != 0)
+                return ret;
+        }
 #else
         // fprintf(stderr, "deconvolution1d_arm: using deconvolution1d_arm\n");
         int ret = deconvolution1d_arm(bottom_blob, top_blob_bordered, weight_data, bias_data, kernel_w, stride_w, dilation_w, activation_type, activation_params, opt);
-#endif
         if (ret != 0)
             return ret;
+#endif
     }
     else
     {
