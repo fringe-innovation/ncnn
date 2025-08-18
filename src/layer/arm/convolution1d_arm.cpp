@@ -57,7 +57,11 @@ int Convolution1D_arm::create_pipeline(const Option& opt)
     const int num_input = weight_data_size / kernel_w / num_output;
 
     // Use GEMM for 1x1 convolutions
-    if (kernel_w == 1)
+    if (opt.use_sgemm_convolution && kernel_w == 1 && stride_w == 1 && dilation_w == 1)
+    {
+        convolution1d_im2col_gemm_transform_kernel(weight_data, weight_sgemm_data, num_input, num_output, kernel_w, opt);
+    }
+    else if (opt.use_sgemm_convolution && kernel_w == 3 && stride_w == 1 && dilation_w == 1)
     {
         convolution1d_im2col_gemm_transform_kernel(weight_data, weight_sgemm_data, num_input, num_output, kernel_w, opt);
     }
@@ -126,7 +130,11 @@ int Convolution1D_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Opti
         return -100;
 
     // Use GEMM for 1x1 convolutions
-    if (kernel_w == 1)
+    if (opt.use_sgemm_convolution && kernel_w == 1 && stride_w == 1 && dilation_w == 1)
+    {
+        return convolution1d_im2col_gemm(bottom_blob_bordered, top_blob, weight_sgemm_data, bias_data, kernel_w, dilation_w, stride_w, opt.num_threads, opt);
+    }
+    else if (opt.use_sgemm_convolution && kernel_w == 3 && stride_w == 1 && dilation_w == 1)
     {
         return convolution1d_im2col_gemm(bottom_blob_bordered, top_blob, weight_sgemm_data, bias_data, kernel_w, dilation_w, stride_w, opt.num_threads, opt);
     }
