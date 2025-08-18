@@ -16,6 +16,7 @@
 namespace ncnn {
 
 #include "convolution1d_packed.h"
+#include "convolution1d_im2col_gemm.h"
 #if NCNN_BF16
 #include "convolution1d_packed_bf16s.h"
 #endif // NCNN_BF16
@@ -55,7 +56,15 @@ int Convolution1D_arm::create_pipeline(const Option& opt)
 
     const int num_input = weight_data_size / kernel_w / num_output;
 
-    convolution1d_transform_kernel_packed(weight_data, weight_data_tm, num_input, num_output, kernel_w);
+    // Use GEMM for 1x1 convolutions
+    if (kernel_w == 1)
+    {
+        convolution1d_im2col_gemm_transform_kernel(weight_data, weight_sgemm_data, num_input, num_output, kernel_w, opt);
+    }
+    else
+    {
+        convolution1d_transform_kernel_packed(weight_data, weight_data_tm, num_input, num_output, kernel_w);
+    }
 
     if (opt.lightmode)
         weight_data.release();
@@ -116,7 +125,15 @@ int Convolution1D_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Opti
     if (top_blob.empty())
         return -100;
 
-    convolution1d_packed(bottom_blob_bordered, top_blob, weight_data_tm, bias_data, kernel_w, dilation_w, stride_w, activation_type, activation_params, opt);
+    // Use GEMM for 1x1 convolutions
+    if (kernel_w == 1)
+    {
+        return convolution1d_im2col_gemm(bottom_blob_bordered, top_blob, weight_sgemm_data, bias_data, kernel_w, dilation_w, stride_w, opt.num_threads, opt);
+    }
+    else
+    {
+        convolution1d_packed(bottom_blob_bordered, top_blob, weight_data_tm, bias_data, kernel_w, dilation_w, stride_w, activation_type, activation_params, opt);
+    }
 
     return 0;
 }

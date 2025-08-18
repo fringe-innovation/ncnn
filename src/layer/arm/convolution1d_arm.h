@@ -33,6 +33,7 @@ protected:
 
 public:
     Mat weight_data_tm;
+    Mat weight_sgemm_data;
 
     // fp16
     Mat bias_data_fp16;
